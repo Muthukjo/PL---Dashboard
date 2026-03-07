@@ -190,6 +190,8 @@ async function handleConnect() {
     LAST_UPDATED = data.lastUpdated || "";
     BETS = processBets(data.bets);
     
+    try { localStorage.setItem("plDashUrl", url); } catch(e) {}
+    
     document.getElementById("setupScreen").style.display = "none";
     document.getElementById("dashScreen").style.display = "block";
     renderDashboard();
@@ -222,8 +224,10 @@ async function refreshData() {
 
 function disconnect() {
   APP_URL = ""; BETS = [];
+  try { localStorage.removeItem("plDashUrl"); } catch(e) {}
   document.getElementById("dashScreen").style.display = "none";
   document.getElementById("setupScreen").style.display = "flex";
+  document.getElementById("urlInput").value = "";
   document.getElementById("connectBtn").disabled = false;
   document.getElementById("connectBtn").textContent = "CONNECT & LOAD DATA";
 }
@@ -512,6 +516,17 @@ function groupCols() {
 document.getElementById("urlInput").addEventListener("keydown", function(e) {
   if (e.key === "Enter") handleConnect();
 });
+
+// Auto-connect if URL was saved previously
+(function autoConnect() {
+  try {
+    const savedUrl = localStorage.getItem("plDashUrl");
+    if (savedUrl) {
+      document.getElementById("urlInput").value = savedUrl;
+      handleConnect();
+    }
+  } catch(e) {}
+})();
 </script>
 </body>
 </html>
