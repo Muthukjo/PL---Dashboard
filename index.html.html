@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P/L Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #06090f; --card: #0c1119; --border: #151d2e;
+    --gold: #d4a843; --goldDim: #7a6228;
+    --green: #34d399; --red: #fb7185;
+    --text: #e2e8f0; --dim: #64748b; --muted: #384258;
+    --mono: 'DM Mono', monospace;
+    --body: 'Outfit', sans-serif;
+    --display: 'Playfair Display', serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: var(--body); min-height: 100vh; }
+  
+  /* Setup Screen */
+  .setup { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+  .setup-box { max-width: 540px; width: 100%; text-align: center; }
+  .setup-badge { font-size: 10px; text-transform: uppercase; letter-spacing: 3px; color: var(--gold); font-family: var(--mono); margin-bottom: 8px; }
+  .setup-title { font-size: 26px; font-weight: 700; font-family: var(--display); margin-bottom: 8px; }
+  .setup-sub { color: var(--dim); font-size: 13px; margin-bottom: 28px; line-height: 1.6; }
+  .setup-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 24px; text-align: left; }
+  .field-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); font-family: var(--mono); margin-bottom: 8px; }
+  .url-input { width: 100%; padding: 11px 14px; background: #080c14; border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: var(--mono); font-size: 12px; outline: none; }
+  .url-input:focus { border-color: var(--gold); }
+  .url-input.error { border-color: var(--red); }
+  .err-msg { color: var(--red); font-size: 11px; margin-top: 6px; font-family: var(--mono); }
+  .connect-btn { margin-top: 16px; width: 100%; padding: 12px; background: linear-gradient(135deg, var(--gold), var(--goldDim)); color: #0a0e17; border: none; border-radius: 6px; font-size: 12px; font-weight: 700; font-family: var(--mono); letter-spacing: 1px; cursor: pointer; text-transform: uppercase; }
+  .connect-btn:disabled { background: var(--muted); cursor: wait; }
+  .steps-card { margin-top: 24px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px; text-align: left; }
+  .steps-title { font-size: 11px; font-weight: 600; color: var(--gold); margin-bottom: 10px; font-family: var(--mono); }
+  .step { display: flex; gap: 10px; margin-bottom: 8px; font-size: 12px; color: var(--dim); line-height: 1.5; }
+  .step-num { color: var(--gold); font-family: var(--mono); font-weight: 600; flex-shrink: 0; }
+
+  /* Dashboard */
+  .dash { max-width: 940px; margin: 0 auto; padding: 24px 16px; display: none; }
+  .dash-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; flex-wrap: wrap; gap: 10px; }
+  .dash-badge { font-size: 10px; text-transform: uppercase; letter-spacing: 3px; color: var(--gold); font-family: var(--mono); margin-bottom: 3px; }
+  .dash-title { font-size: 22px; font-weight: 700; font-family: var(--display); }
+  .dash-sub { font-size: 11px; color: var(--dim); margin-top: 2px; }
+  .btn-group { display: flex; gap: 8px; }
+  .refresh-btn { padding: 7px 16px; background: rgba(212,168,67,0.12); border: 1px solid var(--goldDim); border-radius: 5px; color: var(--gold); font-size: 11px; font-family: var(--mono); cursor: pointer; font-weight: 600; }
+  .disconnect-btn { padding: 7px 14px; background: transparent; border: 1px solid var(--border); border-radius: 5px; color: var(--dim); font-size: 11px; font-family: var(--mono); cursor: pointer; }
+
+  /* Stats */
+  .stats { display: flex; gap: 9px; flex-wrap: wrap; margin-bottom: 18px; }
+  .stat { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; flex: 1 1 140px; min-width: 125; }
+  .stat-label { font-size: 9px; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); font-family: var(--mono); margin-bottom: 5px; }
+  .stat-value { font-size: 20px; font-weight: 700; font-family: var(--mono); line-height: 1.2; }
+  .stat-sub { font-size: 10px; color: var(--dim); margin-top: 3px; }
+
+  /* Top Lists */
+  .top-lists { display: flex; gap: 9px; flex-wrap: wrap; margin-bottom: 18px; }
+  .top-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; flex: 1 1 200px; min-width: 180px; }
+  .top-card-title { font-size: 9px; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); font-family: var(--mono); margin-bottom: 10px; }
+  .top-item { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
+  .top-rank { font-size: 10px; color: var(--muted); font-family: var(--mono); width: 18px; flex-shrink: 0; }
+  .top-name { font-size: 12px; color: var(--text); flex: 1; margin: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .top-val { font-size: 12px; font-family: var(--mono); font-weight: 600; white-space: nowrap; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 2px; margin-bottom: 14px; background: var(--card); border-radius: 6px; padding: 3px; border: 1px solid var(--border); overflow-x: auto; }
+  .tab-btn { padding: 8px 15px; font-size: 12px; font-weight: 400; color: var(--dim); background: transparent; border: 1px solid transparent; border-radius: 4px; cursor: pointer; white-space: nowrap; font-family: var(--body); }
+  .tab-btn.active { font-weight: 600; color: var(--gold); background: rgba(212,168,67,0.1); border-color: var(--goldDim); }
+
+  /* Table */
+  .table-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .table-scroll { max-height: 500px; overflow: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th { padding: 10px 9px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 1.4px; color: var(--muted); font-family: var(--mono); font-weight: 500; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--card); z-index: 1; cursor: pointer; user-select: none; white-space: nowrap; }
+  td { padding: 8px 9px; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.025); white-space: nowrap; }
+  tr.alt { background: rgba(255,255,255,0.018); }
+  tr.total-row { background: rgba(212,168,67,0.06); }
+  tr.total-row td { padding: 10px 9px; font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--gold); }
+  .mono { font-family: var(--mono); }
+  .c-green { color: var(--green); }
+  .c-red { color: var(--red); }
+  .c-dim { color: var(--dim); }
+  .c-muted { color: var(--muted); }
+  .fw600 { font-weight: 600; }
+  .fw700 { font-weight: 700; }
+  .text-right { text-align: right; }
+  .text-center { text-align: center; }
+  .fs11 { font-size: 11px; }
+  .fs12 { font-size: 12px; }
+
+  /* Bar */
+  .bar-wrap { display: flex; align-items: center; gap: 6px; }
+  .bar-track { height: 11px; background: #101728; border-radius: 2px; overflow: hidden; flex-shrink: 0; }
+  .bar-fill { height: 100%; border-radius: 2px; opacity: 0.8; }
+  .bar-val { font-family: var(--mono); font-size: 12px; font-weight: 600; min-width: 82px; text-align: right; }
+</style>
+</head>
+<body>
+
+<!-- SETUP SCREEN -->
+<div class="setup" id="setupScreen">
+  <div class="setup-box">
+    <div class="setup-badge">Connect to Google Sheets</div>
+    <h1 class="setup-title">P/L Dashboard</h1>
+    <p class="setup-sub">Paste your Apps Script Web App URL below to auto-fetch your betting data</p>
+    
+    <div class="setup-card">
+      <div class="field-label">Web App URL</div>
+      <input type="text" class="url-input" id="urlInput" placeholder="https://script.google.com/macros/s/.../exec" />
+      <div class="err-msg" id="errMsg" style="display:none"></div>
+      <button class="connect-btn" id="connectBtn" onclick="handleConnect()">Connect & Load Data</button>
+    </div>
+
+    <div class="steps-card">
+      <div class="steps-title">How to get the URL:</div>
+      <div class="step"><span class="step-num">1.</span><span>Open your Google Sheet → Extensions → Apps Script</span></div>
+      <div class="step"><span class="step-num">2.</span><span>Replace all code with the updated script (v2)</span></div>
+      <div class="step"><span class="step-num">3.</span><span>Click Deploy → New deployment</span></div>
+      <div class="step"><span class="step-num">4.</span><span>Type: Web app → Access: Anyone → Deploy</span></div>
+      <div class="step"><span class="step-num">5.</span><span>Copy the URL and paste it above</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div class="dash" id="dashScreen">
+  <div class="dash-header">
+    <div>
+      <div class="dash-badge">Live from Google Sheets</div>
+      <h1 class="dash-title">P/L Dashboard</h1>
+      <p class="dash-sub" id="dashSub"></p>
+    </div>
+    <div class="btn-group">
+      <button class="refresh-btn" id="refreshBtn" onclick="refreshData()">↻ Refresh</button>
+      <button class="disconnect-btn" onclick="disconnect()">Disconnect</button>
+    </div>
+  </div>
+
+  <div class="stats" id="statsRow"></div>
+
+  <div class="top-lists" id="topLists"></div>
+
+  <div class="tabs" id="tabsRow"></div>
+
+  <div class="table-wrap">
+    <div class="table-scroll" id="tableContent"></div>
+  </div>
+</div>
+
+<script>
+// ── State ──
+let APP_URL = "";
+let BETS = [];
+let SHEET_NAME = "";
+let LAST_UPDATED = "";
+let CURRENT_TAB = "overview";
+let SORT_COL = "pl";
+let SORT_DIR = "desc";
+
+const TABS = [
+  { id: "overview", label: "Overview" },
+  { id: "week", label: "Weekly" },
+  { id: "month", label: "Monthly" },
+  { id: "year", label: "Yearly" },
+  { id: "venue", label: "Venue" },
+  { id: "league", label: "League" },
+  { id: "team", label: "Teams" },
+];
+
+// ── Connect ──
+async function handleConnect() {
+  const url = document.getElementById("urlInput").value.trim();
+  const errEl = document.getElementById("errMsg");
+  const btn = document.getElementById("connectBtn");
+  
+  if (!url) { showErr("Please paste your Web App URL"); return; }
+  
+  btn.disabled = true; btn.textContent = "CONNECTING...";
+  errEl.style.display = "none";
+  
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.error) { showErr("Error: " + data.error); btn.disabled = false; btn.textContent = "CONNECT & LOAD DATA"; return; }
+    if (!data.bets || data.bets.length === 0) { showErr("No bets found"); btn.disabled = false; btn.textContent = "CONNECT & LOAD DATA"; return; }
+    
+    APP_URL = url;
+    SHEET_NAME = data.sheetName || "";
+    LAST_UPDATED = data.lastUpdated || "";
+    BETS = processBets(data.bets);
+    
+    document.getElementById("setupScreen").style.display = "none";
+    document.getElementById("dashScreen").style.display = "block";
+    renderDashboard();
+  } catch (e) {
+    showErr("Failed to fetch. Check URL and ensure access is set to 'Anyone'.");
+    btn.disabled = false; btn.textContent = "CONNECT & LOAD DATA";
+  }
+}
+
+function showErr(msg) {
+  const el = document.getElementById("errMsg");
+  el.textContent = msg; el.style.display = "block";
+  document.getElementById("urlInput").classList.add("error");
+}
+
+async function refreshData() {
+  const btn = document.getElementById("refreshBtn");
+  btn.textContent = "↻ Refreshing..."; btn.disabled = true;
+  try {
+    const res = await fetch(APP_URL);
+    const data = await res.json();
+    if (data.bets) {
+      BETS = processBets(data.bets);
+      LAST_UPDATED = data.lastUpdated || "";
+      renderDashboard();
+    }
+  } catch (e) {}
+  btn.textContent = "↻ Refresh"; btn.disabled = false;
+}
+
+function disconnect() {
+  APP_URL = ""; BETS = [];
+  document.getElementById("dashScreen").style.display = "none";
+  document.getElementById("setupScreen").style.display = "flex";
+  document.getElementById("connectBtn").disabled = false;
+  document.getElementById("connectBtn").textContent = "CONNECT & LOAD DATA";
+}
+
+// ── Process ──
+function processBets(raw) {
+  return raw.map((b, i) => {
+    let dateObj = null;
+    if (b.date) {
+      const p = b.date.split("/");
+      if (p.length === 3) dateObj = new Date(+p[2], +p[0] - 1, +p[1]);
+    }
+    const rawTeams = b.match && b.match.includes(" vs ") ? b.match.split(/\s+vs\s+/i).map(t => t.trim()) : [b.match || ""];
+    const teams = rawTeams.map(t => t.replace(/\s*\b(1st|2nd|3rd|4th|5th|6th|7th|8th|9th|10th)\b\s*/gi, " ").replace(/\s*\b(T20I|T20|ODI|Test|T10)\b\s*/gi, " ").replace(/\s*\(Day\s*\d+\)\s*/gi, " ").replace(/\s+/g, " ").trim()).filter(t => t.length > 0);
+    return { ...b, dateObj, teams, idx: i + 1 };
+  });
+}
+
+// ── Grouping ──
+function weekStart(d) {
+  const x = new Date(d); const day = x.getDay();
+  x.setDate(x.getDate() - (day === 0 ? 6 : day - 1));
+  x.setHours(0,0,0,0); return x;
+}
+function fmtD(d) { return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }); }
+function weekLabel(d) { if (!d) return "Unknown"; const ws = weekStart(d); const we = new Date(ws); we.setDate(we.getDate() + 6); return fmtD(ws) + " – " + fmtD(we); }
+function monthLabel(d) { return d ? d.toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "Unknown"; }
+function yearLabel(d) { return d ? String(d.getFullYear()) : "Unknown"; }
+function INR(v) { return (v < 0 ? "−" : "") + "₹" + Math.abs(v).toLocaleString("en-IN"); }
+function INRK(v) { const abs = Math.abs(v); const s = v < 0 ? "−" : ""; if (abs >= 1000) return s + "₹" + Math.round(abs / 1000).toLocaleString("en-IN") + "K"; return s + "₹" + abs; }
+function PCT(v) { return (v * 100).toFixed(1) + "%"; }
+
+function groupBy(arr, keyFn) {
+  const m = {};
+  arr.forEach(b => { const k = keyFn(b); if (!m[k]) m[k] = []; m[k].push(b); });
+  return m;
+}
+
+function summarize(groups, addCum) {
+  const rows = Object.entries(groups).map(([label, items]) => ({
+    label, bets: items.length,
+    wins: items.filter(b => b.pl > 0).length,
+    losses: items.filter(b => b.pl <= 0).length,
+    pl: items.reduce((s, b) => s + b.pl, 0),
+    avg: Math.round(items.reduce((s, b) => s + b.pl, 0) / items.length),
+    winPct: items.length > 0 ? items.filter(b => b.pl > 0).length / items.length : 0,
+    _sort: items[0]?.dateObj?.getTime() || 0,
+  }));
+  if (addCum) { rows.sort((a, b) => a._sort - b._sort); let c = 0; rows.forEach(r => { c += r.pl; r.cumPL = c; }); }
+  return rows;
+}
+
+function teamSummarize(bets) {
+  const m = {};
+  bets.forEach(b => b.teams.forEach(t => { if (!t) return; if (!m[t]) m[t] = []; m[t].push(b); }));
+  return Object.entries(m).map(([label, items]) => ({
+    label, bets: items.length,
+    wins: items.filter(b => b.pl > 0).length,
+    losses: items.filter(b => b.pl <= 0).length,
+    pl: items.reduce((s, b) => s + b.pl, 0),
+    avg: Math.round(items.reduce((s, b) => s + b.pl, 0) / items.length),
+    winPct: items.length > 0 ? items.filter(b => b.pl > 0).length / items.length : 0,
+  }));
+}
+
+// ── Bar HTML ──
+function barHTML(value, maxAbs, w) {
+  w = w || 100;
+  const pct = maxAbs > 0 ? Math.min(Math.abs(value) / maxAbs * 100, 100) : 0;
+  const pos = value >= 0;
+  const color = pos ? "var(--green)" : "var(--red)";
+  const float = pos ? "left" : "right";
+  return `<div class="bar-wrap">
+    <div class="bar-track" style="width:${w}px"><div class="bar-fill" style="width:${pct}%;background:${color};float:${float}"></div></div>
+    <span class="bar-val" style="color:${color}">${INR(value)}</span>
+  </div>`;
+}
+
+// ── Render ──
+function renderDashboard() {
+  const totalPL = BETS.reduce((s, b) => s + b.pl, 0);
+  const wins = BETS.filter(b => b.pl > 0).length;
+  const losses = BETS.filter(b => b.pl <= 0).length;
+
+  const timeAgo = LAST_UPDATED ? (() => {
+    const diff = Math.floor((Date.now() - new Date(LAST_UPDATED).getTime()) / 1000);
+    if (diff < 60) return "just now";
+    if (diff < 3600) return Math.floor(diff / 60) + "m ago";
+    return Math.floor(diff / 3600) + "h ago";
+  })() : "";
+
+  document.getElementById("dashSub").textContent = `${SHEET_NAME} · ${BETS.length} bets · updated ${timeAgo}`;
+
+  // Summary Stats (Total P/L + Record only)
+  document.getElementById("statsRow").innerHTML = [
+    statHTML("Total P/L", INRK(totalPL), totalPL >= 0 ? "var(--green)" : "var(--red)"),
+    statHTML("Record", `${wins}W – ${losses}L`, null, PCT(wins / BETS.length) + " win rate"),
+  ].join("");
+
+  // Top Lists
+  const venueGroups = summarize(groupBy(BETS, b => b.venue || "Unknown"), false);
+  const topVenues = [...venueGroups].sort((a, b) => b.pl - a.pl).slice(0, 5);
+  const worstVenues = [...venueGroups].sort((a, b) => a.pl - b.pl).slice(0, 5);
+
+  const teamGroups = teamSummarize(BETS);
+  const topTeams = [...teamGroups].sort((a, b) => b.pl - a.pl).slice(0, 5);
+  const worstTeams = [...teamGroups].sort((a, b) => a.pl - b.pl).slice(0, 5);
+
+  const leagueGroups = summarize(groupBy(BETS, b => b.league || "Unknown"), false);
+  const topLeagues = [...leagueGroups].sort((a, b) => b.pl - a.pl).slice(0, 5);
+  const worstLeagues = [...leagueGroups].sort((a, b) => a.pl - b.pl).slice(0, 5);
+
+  const monthGroups = summarize(groupBy(BETS, b => monthLabel(b.dateObj)), false);
+  const topMonths = monthGroups.sort((a, b) => b.pl - a.pl).slice(0, 3);
+
+  document.getElementById("topLists").innerHTML = [
+    topListHTML("Top 5 Venues", topVenues),
+    topListHTML("Top 5 Teams", topTeams),
+    topListHTML("Top 5 Leagues", topLeagues),
+    topListHTML("Top 3 Months", topMonths),
+    topListHTML("Worst 5 Venues", worstVenues),
+    topListHTML("Worst 5 Teams", worstTeams),
+    topListHTML("Worst 5 Leagues", worstLeagues),
+  ].join("");
+
+  // Tabs
+  document.getElementById("tabsRow").innerHTML = TABS.map(t =>
+    `<button class="tab-btn ${CURRENT_TAB === t.id ? 'active' : ''}" onclick="switchTab('${t.id}')">${t.label}</button>`
+  ).join("");
+
+  renderTable();
+}
+
+function topListHTML(title, items) {
+  let html = `<div class="top-card"><div class="top-card-title">${title}</div>`;
+  items.forEach((item, i) => {
+    const color = item.pl >= 0 ? "var(--green)" : "var(--red)";
+    html += `<div class="top-item">
+      <span class="top-rank">${i + 1}.</span>
+      <span class="top-name">${item.label}</span>
+      <span class="top-val" style="color:${color}">${INRK(item.pl)}</span>
+    </div>`;
+  });
+  html += `</div>`;
+  return html;
+}
+
+function statHTML(label, value, color, sub) {
+  return `<div class="stat">
+    <div class="stat-label">${label}</div>
+    <div class="stat-value" style="color:${color || 'var(--text)'}">${value}</div>
+    ${sub ? `<div class="stat-sub">${sub}</div>` : ""}
+  </div>`;
+}
+
+function switchTab(id) {
+  CURRENT_TAB = id;
+  SORT_COL = "pl"; SORT_DIR = "desc";
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  document.querySelector(`.tab-btn[onclick="switchTab('${id}')"]`).classList.add("active");
+  renderTable();
+}
+
+function sortTable(col) {
+  if (["overview", "week", "month", "year"].includes(CURRENT_TAB)) return;
+  if (SORT_COL === col) SORT_DIR = SORT_DIR === "asc" ? "desc" : "asc";
+  else { SORT_COL = col; SORT_DIR = col === "label" ? "asc" : "desc"; }
+  renderTable();
+}
+
+function renderTable() {
+  const el = document.getElementById("tableContent");
+  
+  if (CURRENT_TAB === "overview") { el.innerHTML = renderOverview(); return; }
+  
+  let rows, cols, fixedOrder = false;
+  
+  if (CURRENT_TAB === "week") { rows = summarize(groupBy(BETS, b => weekLabel(b.dateObj)), false); cols = timeCols(false); fixedOrder = true; }
+  else if (CURRENT_TAB === "month") { rows = summarize(groupBy(BETS, b => monthLabel(b.dateObj)), false); cols = timeCols(false); fixedOrder = true; }
+  else if (CURRENT_TAB === "year") { rows = summarize(groupBy(BETS, b => yearLabel(b.dateObj)), false); cols = timeCols(false); fixedOrder = true; }
+  else if (CURRENT_TAB === "venue") { rows = summarize(groupBy(BETS, b => b.venue || "Unknown"), false); cols = groupCols(); }
+  else if (CURRENT_TAB === "league") { rows = summarize(groupBy(BETS, b => b.league || "Unknown"), false); cols = groupCols(); }
+  else if (CURRENT_TAB === "team") { rows = teamSummarize(BETS); cols = groupCols(); }
+  
+  if (!fixedOrder) {
+    rows.sort((a, b) => {
+      const av = a[SORT_COL], bv = b[SORT_COL];
+      if (typeof av === "string") return SORT_DIR === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+      return SORT_DIR === "asc" ? av - bv : bv - av;
+    });
+  }
+  
+  const maxPL = Math.max(...rows.map(r => Math.abs(r.pl)), 1);
+  const maxCum = Math.max(...rows.map(r => Math.abs(r.cumPL || 0)), 1);
+  const maxAvg = Math.max(...rows.map(r => Math.abs(r.avg || 0)), 1);
+  
+  const arrow = (col) => !fixedOrder && SORT_COL === col ? (SORT_DIR === "asc" ? " ▲" : " ▼") : "";
+  
+  let html = "<table><thead><tr>";
+  cols.forEach(c => {
+    html += `<th style="text-align:${c.align || 'left'}" onclick="sortTable('${c.key}')">${c.label}${arrow(c.key)}</th>`;
+  });
+  html += "</tr></thead><tbody>";
+  
+  rows.forEach((r, i) => {
+    html += `<tr class="${i % 2 === 0 ? 'alt' : ''}">`;
+    cols.forEach(c => {
+      let content, style = `text-align:${c.align || 'left'};`;
+      if (c.key === "label") { content = r.label; style += "font-weight:600;"; }
+      else if (c.key === "bets") { content = r.bets; style += "font-family:var(--mono);"; }
+      else if (c.key === "wins") { content = r.wins; style += "font-family:var(--mono);color:var(--green);"; }
+      else if (c.key === "losses") { content = r.losses; style += "font-family:var(--mono);color:var(--red);"; }
+      else if (c.key === "winPct") { content = `<span style="color:${r.winPct >= 0.5 ? 'var(--green)' : 'var(--red)'}">${PCT(r.winPct)}</span>`; style += "font-family:var(--mono);"; }
+      else if (c.key === "pl") { content = barHTML(r.pl, maxPL); }
+      else if (c.key === "cumPL") { content = barHTML(r.cumPL, maxCum); }
+      else if (c.key === "avg") { content = barHTML(r.avg, maxAvg, 65); }
+      else content = r[c.key] || "";
+      html += `<td style="${style}">${content}</td>`;
+    });
+    html += "</tr>";
+  });
+  
+  // Totals
+  const totalPL = rows.reduce((s, r) => s + r.pl, 0);
+  html += `<tr class="total-row"><td>TOTAL</td>`;
+  html += `<td style="text-align:center">${rows.reduce((s, r) => s + r.bets, 0)}</td>`;
+  html += `<td style="text-align:center">${rows.reduce((s, r) => s + r.wins, 0)}</td>`;
+  html += `<td style="text-align:center">${rows.reduce((s, r) => s + r.losses, 0)}</td>`;
+  if (cols.find(c => c.key === "winPct")) html += `<td></td>`;
+  html += `<td><span style="font-weight:700;color:${totalPL >= 0 ? 'var(--green)' : 'var(--red)'}">${INR(totalPL)}</span></td>`;
+  const extraCols = cols.filter(c => !["label","bets","wins","losses","winPct","pl"].includes(c.key));
+  extraCols.forEach(() => { html += `<td></td>`; });
+  html += "</tr></tbody></table>";
+  
+  el.innerHTML = html;
+}
+
+function renderOverview() {
+  let html = "<table><thead><tr>";
+  ["#", "Date", "Match", "Venue", "League", "P/L"].forEach((h, i) => {
+    html += `<th style="text-align:${h === 'P/L' ? 'right' : 'left'}">${h}</th>`;
+  });
+  html += "</tr></thead><tbody>";
+  
+  BETS.forEach((b, i) => {
+    const plColor = b.pl >= 0 ? "var(--green)" : "var(--red)";
+    html += `<tr class="${i % 2 === 0 ? 'alt' : ''}">
+      <td class="mono fs11 c-muted">${b.idx}</td>
+      <td class="mono fs11 c-dim">${b.date || ""}</td>
+      <td class="fw600">${b.match || ""}</td>
+      <td class="fs12 c-dim">${b.venue || ""}</td>
+      <td class="fs12 c-dim">${b.league || ""}</td>
+      <td class="text-right mono fw600" style="color:${plColor}">${INR(b.pl)}</td>
+    </tr>`;
+  });
+  
+  html += "</tbody></table>";
+  return html;
+}
+
+function timeCols(hasCum) {
+  const cols = [
+    { key: "label", label: "Period" },
+    { key: "bets", label: "Bets", align: "center" },
+    { key: "wins", label: "W", align: "center" },
+    { key: "losses", label: "L", align: "center" },
+    { key: "pl", label: "P/L" },
+  ];
+  if (hasCum) cols.push({ key: "cumPL", label: "Cumulative" });
+  return cols;
+}
+
+function groupCols() {
+  return [
+    { key: "label", label: "Name" },
+    { key: "bets", label: "Bets", align: "center" },
+    { key: "wins", label: "W", align: "center" },
+    { key: "losses", label: "L", align: "center" },
+    { key: "winPct", label: "Win%", align: "center" },
+    { key: "pl", label: "P/L" },
+    { key: "avg", label: "Avg/Bet" },
+  ];
+}
+
+// Enter key support
+document.getElementById("urlInput").addEventListener("keydown", function(e) {
+  if (e.key === "Enter") handleConnect();
+});
+</script>
+</body>
+</html>
