@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>P/L Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   :root {
     --bg: #06090f; --card: #0c1119; --border: #151d2e;
@@ -57,15 +58,19 @@
   .active-filters { font-size: 11px; color: var(--gold); font-family: var(--mono); margin-bottom: 10px; }
 
   /* Summary Row */
-  .summary-row { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
-  .summary-left { display: flex; gap: 9px; flex: 2 1 300px; min-width: 200px; }
-  .summary-left .stat { flex: 1; }
-  .summary-right { flex: 1 1 250px; min-width: 200px; }
-  .summary-right .top-card { height: 100%; padding: 14px 16px; }
-  .stat { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
+  .summary-row { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; height: 200px; }
+  .summary-left { flex: 0 0 220px; min-width: 200px; height: 200px; }
+  .summary-right { flex: 1 1 400px; min-width: 280px; height: 200px; }
+  .summary-right .chart-box { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; height: 200px; display: flex; flex-direction: column; }
+  .summary-right .chart-box canvas { flex: 1; min-height: 0; }
+  .chart-label { font-size: 9px; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); font-family: var(--mono); margin-bottom: 10px; }
+  .stat { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; height: 200px; display: flex; flex-direction: column; justify-content: center; }
   .stat-label { font-size: 9px; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); font-family: var(--mono); margin-bottom: 5px; }
-  .stat-value { font-size: 20px; font-weight: 700; font-family: var(--mono); line-height: 1.2; }
+  .stat-value { font-size: 22px; font-weight: 700; font-family: var(--mono); line-height: 1.2; }
   .stat-sub { font-size: 10px; color: var(--dim); margin-top: 3px; }
+  .stat-divider { height: 1px; background: var(--border); margin: 10px 0; }
+  .stat-record { font-size: 16px; font-weight: 700; font-family: var(--mono); color: var(--text); }
+  .stat-record-label { font-size: 9px; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); font-family: var(--mono); margin-bottom: 5px; }
 
   /* Top Lists */
   .top-lists { display: flex; gap: 9px; flex-wrap: wrap; margin-bottom: 16px; }
@@ -175,7 +180,7 @@
 
   <div class="summary-row" id="summaryRow">
     <div class="summary-left" id="statsRow"></div>
-    <div class="summary-right" id="topMonths"></div>
+    <div class="summary-right"><div class="chart-box"><div class="chart-label">Monthly P/L Trend</div><canvas id="monthlyChart"></canvas></div></div>
   </div>
   <div class="top-lists" id="topLists"></div>
   <div class="tabs" id="tabsRow"></div>
@@ -219,6 +224,7 @@ async function refreshData(){
 }
 function disconnect(){
   APP_URL="";ALL_BETS=[];BETS=[];
+  if(monthlyChart){monthlyChart.destroy();monthlyChart=null;}
   try{localStorage.removeItem("plDashUrl");}catch(e){}
   document.getElementById("dashScreen").style.display="none";document.getElementById("setupScreen").style.display="flex";
   document.getElementById("urlInput").value="";document.getElementById("connectBtn").disabled=false;document.getElementById("connectBtn").textContent="CONNECT & LOAD DATA";
@@ -321,22 +327,81 @@ function showBetDetail(idx){
 }
 function closeModal(e){if(e.target===document.getElementById("modalOverlay"))document.getElementById("modalOverlay").classList.remove("show");}
 
+let monthlyChart=null;
+
 // ── Render ──
-function renderAll(){renderStats();renderTopLists();renderTabs();renderTable();}
+function renderAll(){renderStats();renderMonthlyChart();renderTopLists();renderTabs();renderTable();}
 
 function renderStats(){
   const totalPL=BETS.reduce((s,b)=>s+b.pl,0);const wins=BETS.filter(b=>b.pl>0).length;const losses=BETS.filter(b=>b.pl<=0).length;
   const timeAgo=LAST_UPDATED?(()=>{const diff=Math.floor((Date.now()-new Date(LAST_UPDATED).getTime())/1000);if(diff<60)return"just now";if(diff<3600)return Math.floor(diff/60)+"m ago";return Math.floor(diff/3600)+"h ago";})():"";
   document.getElementById("dashSub").textContent=`${SHEET_NAME} · ${BETS.length} bets · updated ${timeAgo}`;
-  document.getElementById("statsRow").innerHTML=[statHTML("Total P/L",INRK(totalPL),totalPL>=0?"var(--green)":"var(--red)"),statHTML("Record",`${wins}W – ${losses}L`,null,PCT(BETS.length>0?wins/BETS.length:0)+" win rate")].join("");
+  const plColor=totalPL>=0?"var(--green)":"var(--red)";
+  document.getElementById("statsRow").innerHTML=`<div class="stat">
+    <div class="stat-label">Total P/L</div>
+    <div class="stat-value" style="color:${plColor}">${INRK(totalPL)}</div>
+    <div class="stat-divider"></div>
+    <div class="stat-record-label">Record</div>
+    <div class="stat-record">${wins}W – ${losses}L</div>
+    <div class="stat-sub">${PCT(BETS.length>0?wins/BETS.length:0)} win rate</div>
+  </div>`;
+}
+
+function renderMonthlyChart(){
+  if(monthlyChart){monthlyChart.destroy();monthlyChart=null;}
+  const monthGroups=groupByFn(BETS,b=>monthLabel(b.dateObj));
+  const monthData=summarize(monthGroups,false);
+  monthData.sort((a,b)=>a._sort-b._sort);
+  if(monthData.length===0)return;
+  const cf={family:"'DM Mono',monospace",size:10};
+  const zeroLinePlugin={id:'zeroLine',afterDraw(chart){const yScale=chart.scales.y;if(!yScale)return;const y=yScale.getPixelForValue(0);if(y<yScale.top||y>yScale.bottom)return;const ctx=chart.ctx;ctx.save();ctx.beginPath();ctx.setLineDash([4,4]);ctx.strokeStyle="rgba(212,168,67,0.5)";ctx.lineWidth=1;ctx.moveTo(chart.chartArea.left,y);ctx.lineTo(chart.chartArea.right,y);ctx.stroke();ctx.restore();}};
+
+  // Pre-compute top 2 leagues per month
+  const monthLeagues={};
+  monthData.forEach(m=>{
+    const betsInMonth=monthGroups[m.label]||[];
+    const leagueMap={};
+    betsInMonth.forEach(b=>{const l=b.league||"Unknown";if(!leagueMap[l])leagueMap[l]=0;leagueMap[l]+=b.pl;});
+    const sorted=Object.entries(leagueMap).map(([name,pl])=>({name,pl})).sort((a,b)=>Math.abs(b.pl)-Math.abs(a.pl)).slice(0,2);
+    monthLeagues[m.label]=sorted;
+  });
+
+  monthlyChart=new Chart(document.getElementById("monthlyChart"),{
+    type:"line",
+    data:{labels:monthData.map(m=>m.label),datasets:[{data:monthData.map(m=>m.pl),borderColor:"#d4a843",backgroundColor:"rgba(212,168,67,0.08)",fill:true,tension:0.3,pointRadius:5,pointHoverRadius:7,pointBackgroundColor:monthData.map(m=>m.pl>=0?"#34d399":"#fb7185"),pointBorderColor:monthData.map(m=>m.pl>=0?"#34d399":"#fb7185"),pointBorderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{enabled:false,external:function(context){
+      let el=document.getElementById('chartTooltip');
+      if(!el){el=document.createElement('div');el.id='chartTooltip';el.style.cssText='position:fixed;pointer-events:none;background:#1a1f2e;border:1px solid #2a3040;border-radius:6px;padding:10px 14px;font-family:var(--mono);font-size:11px;color:#e2e8f0;z-index:200;transition:opacity 0.15s;box-shadow:0 4px 12px rgba(0,0,0,0.4);';document.body.appendChild(el);}
+      const tooltip=context.tooltip;
+      if(tooltip.opacity===0){el.style.opacity=0;return;}
+      const idx=tooltip.dataPoints?tooltip.dataPoints[0].dataIndex:null;
+      if(idx===null){el.style.opacity=0;return;}
+      const month=monthData[idx];
+      const plColor=month.pl>=0?'#34d399':'#fb7185';
+      const leagues=monthLeagues[month.label]||[];
+      let html=`<div style="font-weight:600;margin-bottom:4px">${month.label}</div>`;
+      html+=`<div style="color:${plColor};font-weight:700;font-size:13px">${INRK(month.pl)}</div>`;
+      if(leagues.length>0){
+        html+=`<div style="margin-top:6px;padding-top:6px;border-top:1px solid #2a3040;font-size:10px;color:#64748b">Top Leagues:</div>`;
+        leagues.forEach(l=>{
+          const sign=l.pl>=0?'+':'−';
+          const signColor=l.pl>=0?'#34d399':'#fb7185';
+          html+=`<div style="display:flex;justify-content:space-between;gap:12px;margin-top:3px"><span>${l.name}</span><span style="color:${signColor}">${sign}${INRK(Math.abs(l.pl))}</span></div>`;
+        });
+      }
+      el.innerHTML=html;el.style.opacity=1;
+      const pos=context.chart.canvas.getBoundingClientRect();
+      el.style.left=pos.left+tooltip.caretX+10+'px';
+      el.style.top=pos.top+tooltip.caretY-10+'px';
+    }}},scales:{x:{ticks:{color:"#64748b",font:cf,maxRotation:45},grid:{display:false}},y:{ticks:{color:"#64748b",font:cf,callback:v=>INRK(v)},grid:{color:"rgba(255,255,255,0.04)"}}}},
+    plugins:[zeroLinePlugin]
+  });
 }
 
 function renderTopLists(){
   const vg=summarize(groupByFn(BETS,b=>b.venue||"Unknown"),false);
   const tg=teamSummarize(BETS);
   const lg=summarize(groupByFn(BETS,b=>b.league||"Unknown"),false);
-  const mg=summarize(groupByFn(BETS,b=>monthLabel(b.dateObj)),false);
-  document.getElementById("topMonths").innerHTML=topListHTML("Top 3 Months",[...mg].sort((a,b)=>b.pl-a.pl).slice(0,3));
   document.getElementById("topLists").innerHTML=[
     topListHTML("Top 5 Venues",[...vg].sort((a,b)=>b.pl-a.pl).slice(0,5)),
     topListHTML("Top 5 Teams",[...tg].sort((a,b)=>b.pl-a.pl).slice(0,5)),
